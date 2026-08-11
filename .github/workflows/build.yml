@@ -114,6 +114,11 @@ jobs:
       - name: Show build errors
         if: failure()
         run: |
+          echo "===== COMPILER/LINKER ERRORS ====="
+          grep -n -E \
+            "error:|Error:|undefined reference|ld returned|collect2:|No such file|not found|multiple definition|relocation" \
+            build.log | tail -100 || true
+
           echo "===== LAST 300 LINES ====="
           tail -300 build.log
 
