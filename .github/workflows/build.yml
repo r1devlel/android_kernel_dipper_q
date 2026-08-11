@@ -116,7 +116,6 @@ jobs:
           p = Path("scripts/gcc-wrapper.py")
           s = p.read_text()
 
-          # Python 2 -> Python 3
           s = s.replace(
               "print >> sys.stderr, line,",
               "print(line, end='', file=sys.stderr)"
@@ -127,34 +126,32 @@ jobs:
               'print("warning:", m.group(2), file=sys.stderr)'
           )
 
-          # Python 3 subprocess output as text
           s = s.replace(
               "stderr=subprocess.PIPE",
               "stderr=subprocess.PIPE, universal_newlines=True"
           )
 
-          # Do not make every GCC warning fatal.
           old = """    if m and m.group(2) not in allowed_warnings:
-          print("warning:", m.group(2), file=sys.stderr)
+              print >> sys.stderr, "error, forbidden warning:", m.group(2)
 
-        # If there is a warning, remove any object if it exists.
-        if ofile:
-             try:
-                os.remove(ofile)
-            except OSError:
-                           pass            
-                           sys.exit(1) """
+              if ofile:
+                  try:
+                      os.remove(ofile)
+                  except OSError:
+                      pass
+              sys.exit(1)
+          """
+
           new = """    if m and m.group(2) not in allowed_warnings:
-          print("warning:", m.group(2), file=sys.stderr) 
-        """
-          if old not in s:
-                          raise SystemExit("Target warning handler tidak ditemukan")
-                          s = s.replace(old, new, 1)
-                          p.write_text(s)
-                          PY
+              print("warning:", m.group(2), file=sys.stderr)
+          """
 
-          echo "=== gcc-wrapper.py ==="
-          sed -n '45,90p' scripts/gcc-wrapper.py
+          if old not in s:
+              raise SystemExit("Warning handler tidak ditemukan")
+
+          s = s.replace(old, new, 1)
+          p.write_text(s)
+          PY
 
 
       - name: Build kernel
