@@ -58,15 +58,28 @@ jobs:
           p = Path("scripts/gcc-wrapper.py")
           s = p.read_text()
 
+          # Python 2 -> Python 3 compatibility
           s = s.replace(
               "print >> sys.stderr, line,",
               "print(line, end=' ', file=sys.stderr)"
           )
 
+          # GCC output is bytes in this old wrapper.
+          s = s.replace(
+              "for line in output:",
+              "for line in output.splitlines(True):"
+          )
+
+          s = s.replace(
+              "line = line.rstrip('\\n')",
+              "line = line.decode('utf-8', errors='replace').rstrip('\\n')"
+          )
+
           p.write_text(s)
           PY
 
-          grep -n "print" scripts/gcc-wrapper.py | tail -20
+          echo "=== wrapper check ==="
+          grep -nE "print|decode|rstrip|for line" scripts/gcc-wrapper.py
 
       - name: Build kernel
         run: |
