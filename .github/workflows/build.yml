@@ -50,37 +50,35 @@ jobs:
           echo "Kernel config berhasil dibuat."
           grep -E '^CONFIG_(ARM64|QCOM|MSM)' .config | head -30
 
-      - name: Fix old GCC wrapper for Python 3
+      - name: Disable legacy GCC wrapper
         run: |
+          cp scripts/gcc-wrapper.py scripts/gcc-wrapper.py.bak
+          sed -i '1s|.*|#!/usr/bin/env python3|' scripts/gcc-wrapper.py
+
           python3 - <<'PY'
           from pathlib import Path
 
           p = Path("scripts/gcc-wrapper.py")
           s = p.read_text()
 
-          # Python 2 -> Python 3 compatibility
-          s = s.replace(
-              "print >> sys.stderr, line,",
-              "print(line, end=' ', file=sys.stderr)"
-          )
+          # Replace the legacy Python-2 wrapper with a transparent
+          # compiler launcher. The actual compiler is the final argument.
+          p.write_text("""#!/usr/bin/env python3       
+          import os
+          import sys
+         
+          args = sys.argv[1:]
+          if not args:
+          sys.exit(1)
 
-          # GCC output is bytes in this old wrapper.
-          s = s.replace(
-              "for line in output:",
-              "for line in output.splitlines(True):"
-          )
-
-          s = s.replace(
-              "line = line.rstrip('\\n')",
-              "line = line.decode('utf-8', errors='replace').rstrip('\\n')"
-          )
-
-          p.write_text(s)
+          os.execvp(args[0], args)""")
           PY
 
-          echo "=== wrapper check ==="
-          grep -nE "print|decode|rstrip|for line" scripts/gcc-wrapper.py
+          chmod +x scripts/gcc-wrapper.py
 
+          echo "GCC wrapper replaced with transparent launcher:"
+          cat scripts/gcc-wrapper.py
+          
       - name: Build kernel
         run: |
           set -o pipefail
