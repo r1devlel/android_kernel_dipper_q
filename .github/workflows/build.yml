@@ -58,7 +58,6 @@ jobs:
           p = Path("scripts/gcc-wrapper.py")
           s = p.read_text()
 
-          # Python 2 print >> sys.stderr
           s = s.replace(
               "print >> sys.stderr, line,",
               "print(line, end='', file=sys.stderr)"
@@ -69,7 +68,6 @@ jobs:
               'print("error, forbidden warning:", m.group(2), file=sys.stderr)'
           )
 
-          # Python 3: subprocess output must be text
           s = s.replace(
               "stderr=subprocess.PIPE",
               "stderr=subprocess.PIPE, universal_newlines=True"
@@ -84,8 +82,9 @@ jobs:
           PY
 
           echo "=== patched gcc-wrapper.py ==="
-          grep -nE 'print >>|print\\(|subprocess|stderr|stdout' scripts/gcc-wrapper.py
-          
+          grep -n "print" scripts/gcc-wrapper.py
+          grep -n "subprocess" scripts/gcc-wrapper.py
+
       - name: Build kernel
         run: |
           set -o pipefail
