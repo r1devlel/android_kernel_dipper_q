@@ -94,6 +94,7 @@ jobs:
             CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
             HOSTCFLAGS="-fcommon" \
             HOSTCXXFLAGS="-fcommon" \
+            KCFLAGS="-Wno-array-bounds" \
             V=1 2>&1 | tee build.log
       
       - name: Show build errors
