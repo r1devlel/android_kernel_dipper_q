@@ -14,9 +14,66 @@ jobs:
           ref: dipper-q-oss
           fetch-depth: 1
 
-      - name: Test runner
+      - name: Install dependencies
         run: |
-          echo "GitHub Actions runner OK"
+          sudo apt-get update
+          sudo apt-get install -y \
+            bc \
+            bison \
+            flex \
+            libssl-dev \
+            libelf-dev \
+            libncurses5-dev \
+            cpio \
+            python3 \
+            gcc-aarch64-linux-gnu \
+            gcc-arm-linux-gnueabi
+
+      - name: Show toolchain
+        run: |
+          echo "=== Host ==="
           uname -a
-          make --version
-          clang --version
+
+          echo "=== ARM64 GCC ==="
+          aarch64-linux-gnu-gcc --version | head -2
+
+          echo "=== Clang ==="
+          clang --version | head -3
+
+      - name: Prepare kernel config
+        run: |
+          make ARCH=arm64 dipper_user_defconfig
+
+      - name: Check generated config
+        run: |
+          test -f .config
+          echo "Kernel config berhasil dibuat."
+          grep -E '^CONFIG_(ARM64|QCOM|MSM)' .config | head -30
+
+      - name: Build kernel
+        run: |
+          make -j"$(nproc)" \
+            ARCH=arm64 \
+            CROSS_COMPILE=aarch64-linux-gnu- \
+            CROSS_COMPILE_ARM32=arm-linux-gnueabi-
+
+      - name: Collect kernel
+        run: |
+          mkdir -p output
+
+          if [ -f arch/arm64/boot/Image.gz-dtb ]; then
+            cp arch/arm64/boot/Image.gz-dtb output/
+          elif [ -f arch/arm64/boot/Image ]; then
+            cp arch/arm64/boot/Image output/
+          else
+            echo "Kernel image tidak ditemukan!"
+            exit 1
+          fi
+
+          cp .config output/dipper.config
+
+      - name: Upload kernel
+        uses: actions/upload-artifact@v4
+        with:
+          name: dipper-kernel
+          path: output/
