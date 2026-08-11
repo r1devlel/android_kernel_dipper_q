@@ -50,6 +50,24 @@ jobs:
           echo "Kernel config berhasil dibuat."
           grep -E '^CONFIG_(ARM64|QCOM|MSM)' .config | head -30
 
+      - name: Fix old GCC wrapper for Python 3
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path("scripts/gcc-wrapper.py")
+          s = p.read_text()
+
+          s = s.replace(
+              "print >> sys.stderr, line,",
+              "print(line, end=' ', file=sys.stderr)"
+          )
+
+          p.write_text(s)
+          PY
+
+          grep -n "print" scripts/gcc-wrapper.py | tail -20
+
       - name: Build kernel
         run: |
           set -o pipefail
