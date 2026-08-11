@@ -23,7 +23,6 @@ jobs:
             flex \
             libssl-dev \
             libelf-dev \
-            libncurses5-dev \
             cpio \
             python3 \
             gcc-aarch64-linux-gnu \
@@ -37,9 +36,6 @@ jobs:
           echo "=== ARM64 GCC ==="
           aarch64-linux-gnu-gcc --version | head -2
 
-          echo "=== Clang ==="
-          clang --version | head -3
-
       - name: Prepare kernel config
         run: |
           make ARCH=arm64 dipper_user_defconfig
@@ -50,7 +46,7 @@ jobs:
           echo "Kernel config berhasil dibuat."
           grep -E '^CONFIG_(ARM64|QCOM|MSM)' .config | head -30
 
-      - name: Ignore GCC array-bounds warning
+      - name: Fix legacy GCC wrapper
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -58,31 +54,7 @@ jobs:
           p = Path("scripts/gcc-wrapper.py")
           s = p.read_text()
 
-          old = "def interpret_warning(line):"
-          new = """def interpret_warning(line):
-              if '[-Warray-bounds]' in line:
-                  return
-          """
-
-          if old not in s:
-              raise SystemExit("interpret_warning() tidak ditemukan")
-
-          s = s.replace(old, new, 1)
-          p.write_text(s)
-          PY
-
-          sed -n '45,70p' scripts/gcc-wrapper.py
-
-      - name: Patch legacy GCC wrapper
-        run: |
-          git checkout -- scripts/gcc-wrapper.py
-
-          python3 - <<'PY'
-          from pathlib import Path
-
-          p = Path("scripts/gcc-wrapper.py")
-          s = p.read_text()
-
+          # Python 2 print -> Python 3
           s = s.replace(
               "print >> sys.stderr, line,",
               "print(line, end='', file=sys.stderr)"
@@ -93,33 +65,52 @@ jobs:
               'print("warning:", m.group(2), file=sys.stderr)'
           )
 
+          # Make GCC stderr text instead of bytes.
+          s = s.replace(
+              "stderr=subprocess.PIPE, universal_newlines=True, universal_newlines=True",
+              "stderr=subprocess.PIPE, universal_newlines=True"
+          )
+
           s = s.replace(
               "stderr=subprocess.PIPE",
               "stderr=subprocess.PIPE, universal_newlines=True"
           )
 
-          # Warning tidak lagi dianggap fatal.
-          old = """        sys.exit(1)"""
-          s = s.replace(old, "        return", 1)
+          # Remove duplicate argument if it somehow remains.
+          while "universal_newlines=True, universal_newlines=True" in s:
+              s = s.replace(
+                  "universal_newlines=True, universal_newlines=True",
+                  "universal_newlines=True"
+              )
+
+          # Legacy wrapper treats unknown warnings as fatal.
+          # Change that behavior so warnings are printed but don't abort.
+          marker = "        sys.exit(1)"
+          if marker in s:
+              s = s.replace(marker, "        return", 1)
 
           p.write_text(s)
           PY
 
-          echo "=== CHECK gcc-wrapper.py ==="
-          sed -n '45,90p' scripts/gcc-wrapper.py
+          echo "=== CHECK GCC WRAPPER ==="
+          grep -n "Popen" scripts/gcc-wrapper.py
+          grep -n "print" scripts/gcc-wrapper.py
+
+          echo "=== PYTHON SYNTAX CHECK ==="
+          python3 -m py_compile scripts/gcc-wrapper.py
 
       - name: Build kernel
         run: |
           set -o pipefail
+
           make -j2 \
             ARCH=arm64 \
             CROSS_COMPILE=aarch64-linux-gnu- \
             CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
             HOSTCFLAGS="-fcommon" \
             HOSTCXXFLAGS="-fcommon" \
-            KCFLAGS="-Wno-array-bounds" \
             V=1 2>&1 | tee build.log
-      
+
       - name: Show build errors
         if: failure()
         run: |
