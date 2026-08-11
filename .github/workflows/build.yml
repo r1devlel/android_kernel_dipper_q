@@ -49,35 +49,14 @@ jobs:
           test -f .config
           echo "Kernel config berhasil dibuat."
           grep -E '^CONFIG_(ARM64|QCOM|MSM)' .config | head -30
-
-      - name: Disable legacy GCC wrapper
+          
+      - name: Bypass legacy GCC wrapper
         run: |
-          cp scripts/gcc-wrapper.py scripts/gcc-wrapper.py.bak
-          sed -i '1s|.*|#!/usr/bin/env python3|' scripts/gcc-wrapper.py
+          sed -i 's|scripts/gcc-wrapper.py $(REAL_CC)|$(REAL_CC)|g' Makefile
+          sed -i 's|scripts/gcc-wrapper.py|$(REAL_CC)|g' Makefile
 
-          python3 - <<'PY'
-          from pathlib import Path
-
-          p = Path("scripts/gcc-wrapper.py")
-          s = p.read_text()
-
-          # Replace the legacy Python-2 wrapper with a transparent
-          # compiler launcher. The actual compiler is the final argument.
-          p.write_text("""#!/usr/bin/env python3       
-          import os
-          import sys
-         
-          args = sys.argv[1:]
-          if not args:
-          sys.exit(1)
-
-          os.execvp(args[0], args)""")
-          PY
-
-          chmod +x scripts/gcc-wrapper.py
-
-          echo "GCC wrapper replaced with transparent launcher:"
-          cat scripts/gcc-wrapper.py
+          echo "=== GCC configuration ==="
+          grep -n "gcc-wrapper\|REAL_CC\|CC =" Makefile | head -30
           
       - name: Build kernel
         run: |
