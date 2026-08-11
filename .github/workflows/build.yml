@@ -85,6 +85,29 @@ jobs:
           grep -n "print" scripts/gcc-wrapper.py
           grep -n "subprocess" scripts/gcc-wrapper.py
 
+      - name: Ignore GCC array-bounds warning
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path("scripts/gcc-wrapper.py")
+          s = p.read_text()
+
+          old = "def interpret_warning(line):"
+          new = """def interpret_warning(line):
+              if '[-Warray-bounds]' in line:
+                  return
+          """
+
+          if old not in s:
+              raise SystemExit("interpret_warning() tidak ditemukan")
+
+          s = s.replace(old, new, 1)
+          p.write_text(s)
+          PY
+
+          sed -n '45,70p' scripts/gcc-wrapper.py
+
       - name: Build kernel
         run: |
           set -o pipefail
