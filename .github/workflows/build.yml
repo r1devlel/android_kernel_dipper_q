@@ -50,13 +50,12 @@ jobs:
           echo "Kernel config berhasil dibuat."
           grep -E '^CONFIG_(ARM64|QCOM|MSM)' .config | head -30
           
-      - name: Bypass legacy GCC wrapper
+      - name: Restore legacy GCC wrapper
         run: |
-          sed -i 's|scripts/gcc-wrapper.py $(REAL_CC)|$(REAL_CC)|g' Makefile
-          sed -i 's|scripts/gcc-wrapper.py|$(REAL_CC)|g' Makefile
+          git checkout -- scripts/gcc-wrapper.py
 
-          echo "=== GCC configuration ==="
-          grep -n "gcc-wrapper\|REAL_CC\|CC =" Makefile | head -30
+          echo "=== wrapper restored ==="
+          head -20 scripts/gcc-wrapper.py
           
       - name: Build kernel
         run: |
