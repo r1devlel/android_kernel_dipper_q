@@ -53,10 +53,10 @@ jobs:
       - name: Build kernel
         run: |
           make -j2 \
-            ARCH=arm64 \
-            CROSS_COMPILE=aarch64-linux-gnu- \
-            CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
-            V=1
+          ARCH=arm64 \
+          CROSS_COMPILE=aarch64-linux-gnu- \
+          CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
+          V=1
 
       - name: Collect kernel
         run: |
